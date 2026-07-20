@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Atrium</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+  <style>
+    body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #08090a; color: #d8dbe0; margin: 0; -webkit-font-smoothing: antialiased; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 96px; }
+    a { color: #a3aef0; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 15px; color: #f7f8f8; margin-bottom: 40px; }
+    .brand img { width: 24px; height: 24px; border-radius: 6px; }
+    h1 { color: #f7f8f8; font-size: 30px; letter-spacing: -0.02em; margin: 0 0 6px; }
+    h2 { color: #f7f8f8; font-size: 16px; margin: 30px 0 8px; }
+    p, li { font-size: 14px; line-height: 1.7; }
+    .updated { color: #62666d; font-size: 12.5px; margin-bottom: 30px; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 5px; }
+    .note { background: #101216; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 14px 18px; font-size: 13px; color: #969ca5; margin-top: 34px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="brand" href="/"><img src="assets/logo.svg" alt="" />Atrium</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: July 2026</p>
+
+    <p>This policy describes what data the hosted Atrium service at <b>chat.useatrium.xyz</b> collects, why, and what your choices are. It is written to be read, not to hide anything.</p>
+
+    <h2>What we collect</h2>
+    <ul>
+      <li><b>Account data</b> — username, optional email address, display name, and a scrypt-hashed password (never plaintext).</li>
+      <li><b>Content you create</b> — messages, files you upload, channels, workspaces, statuses, and reactions.</li>
+      <li><b>Technical data</b> — session tokens (login state), timestamps, and standard server logs used to keep the service running and prevent abuse.</li>
+    </ul>
+
+    <h2>Cookies</h2>
+    <p>We use two functional cookies: a session token that keeps you signed in, and a <code>signed_in</code> flag that lets the marketing site personalize its call-to-action. Neither tracks you, and there is no analytics or advertising on this service.</p>
+
+    <h2>How your data is stored</h2>
+    <p>Everything lives in a single SQLite database and an uploads directory on one rented server in the EU (Falkenstein, Germany). Data is not sold, shared, or mined. Backups, when made, are encrypted copies of the same files.</p>
+
+    <h2>Federation</h2>
+    <p>Atrium servers can connect to each other. If your workspace shares a channel or a DM with a workspace on another server, the content of that channel or DM — and basic profile fields (username, display name, avatar) — is relayed to that server and stored there too. Only the conversations explicitly shared ever leave this server.</p>
+
+    <h2>What we don't do</h2>
+    <ul>
+      <li>No advertising, no trackers, no third-party analytics.</li>
+      <li>No sale or rental of your data to anyone, ever.</li>
+      <li>No reading of your private conversations. Server administrators can technically access the database but only touch it for operational reasons (abuse response, legal obligation).</li>
+    </ul>
+
+    <h2>Retention and deletion</h2>
+    <p>Your data stays as long as your account does. To delete your account or specific content, open an issue at <a href="https://github.com/atree0/atrium/issues">github.com/atree0/atrium/issues</a> from the account in question, and it will be handled manually. Deleted messages are soft-deleted and purged on the next backup rotation.</p>
+
+    <h2>Your alternatives</h2>
+    <p>Atrium is open source (MIT). If you want complete control of your data, you can run your own server — your data then never touches ours. See the <a href="https://github.com/atree0/atrium/blob/master/docs/DEPLOYMENT.md">deployment guide</a>.</p>
+
+    <h2>Changes</h2>
+    <p>If this policy changes, the updated version will be posted on this page with a new date.</p>
+
+    <div class="note">This service is operated as a private, non-commercial project. Contact is only possible via <a href="https://github.com/atree0/atrium/issues">GitHub issues</a>. No personal data of the operator is published on this site.</div>
+  </div>
+</body>
+</html>
