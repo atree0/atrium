@@ -1,0 +1,27 @@
+services:
+  atrium:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - atrium-data:/app/data
+    environment:
+      # Set these for a public deployment:
+      ATRIUM_PUBLIC_URL: ${ATRIUM_PUBLIC_URL:-http://localhost:3000}
+      ATRIUM_TRUST_PROXY: ${ATRIUM_TRUST_PROXY:-false}
+      # ATRIUM_DISABLE_REGISTRATION: "1"
+
+  # Optional TLS terminator. Put your domain in deploy/Caddyfile and uncomment.
+  # caddy:
+  #   image: caddy:2-alpine
+  #   restart: unless-stopped
+  #   ports: ["80:80", "443:443"]
+  #   volumes:
+  #     - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy-data:/data
+  #   depends_on: [atrium]
+
+volumes:
+  atrium-data:
+  # caddy-data:

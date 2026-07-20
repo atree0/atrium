@@ -1,0 +1,5 @@
+# Point this at the Atrium container and put it behind your domain.
+# Caddy provisions and renews TLS automatically.
+chat.example.com {
+	reverse_proxy atrium:3000
+}

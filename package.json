@@ -1,0 +1,29 @@
+{
+  "name": "atrium",
+  "version": "1.0.0",
+  "description": "Atrium — an open-source, self-hostable team chat platform with workspaces, channels, DMs, threads, and a full app platform (bot tokens, webhooks, slash commands, events API).",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^2.0.1",
+    "ws": "^8.18.0"
+  },
+  "keywords": [
+    "chat",
+    "slack-alternative",
+    "team-chat",
+    "self-hosted",
+    "websocket",
+    "open-source"
+  ]
+}

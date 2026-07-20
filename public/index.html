@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atrium</title>
+  <link rel="stylesheet" href="/css/app.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22>%0A  <defs>%0A    <linearGradient id=%22tile%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22>%0A      <stop offset=%220%22 stop-color=%22%2322262e%22/>%0A      <stop offset=%221%22 stop-color=%22%230c0e12%22/>%0A    </linearGradient>%0A    <linearGradient id=%22core%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22>%0A      <stop offset=%220%22 stop-color=%22%23ffffff%22/>%0A      <stop offset=%221%22 stop-color=%22%23aeb4bf%22/>%0A    </linearGradient>%0A  </defs>%0A  <rect width=%22100%22 height=%22100%22 rx=%2223%22 fill=%22url%28%23tile%29%22/>%0A  <rect x=%220.75%22 y=%220.75%22 width=%2298.5%22 height=%2298.5%22 rx=%2222.5%22 fill=%22none%22 stroke=%22%23ffffff%22 stroke-opacity=%220.10%22 stroke-width=%221.5%22/>%0A  <%21-- the light well: descending rings into a bright core -->%0A  <rect x=%2220%22 y=%2212%22 width=%2260%22 height=%2260%22 rx=%2214%22 fill=%22none%22 stroke=%22%234b5563%22 stroke-width=%225%22 opacity=%220.6%22/>%0A  <rect x=%2231%22 y=%2227%22 width=%2238%22 height=%2238%22 rx=%229%22 fill=%22none%22 stroke=%22%23a4acb8%22 stroke-width=%225%22 opacity=%220.9%22/>%0A  <rect x=%2242%22 y=%2242%22 width=%2216%22 height=%2216%22 rx=%224.5%22 fill=%22url%28%23core%29%22/>%0A</svg>" />
+</head>
+<body>
+  <div class="drag-strip" id="drag-strip" aria-hidden="true"></div>
+
+  <div id="app"></div>
+
+  <div id="modal-root"></div>
+  <div id="popover-root"></div>
+  <div id="toast-root"></div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

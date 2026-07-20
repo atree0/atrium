@@ -1,0 +1,33 @@
+{
+  "name": "atrium-desktop",
+  "version": "1.0.0",
+  "description": "Atrium desktop app for macOS — a real-window shell over any Atrium server.",
+  "main": "main.js",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^35.1.5",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "chat.atrium.desktop",
+    "productName": "Atrium",
+    "mac": {
+      "icon": "icon.png",
+      "category": "public.app-category.social-networking",
+      "hardenedRuntime": true
+    },
+    "files": [
+      "main.js",
+      "preload.js"
+    ]
+  },
+  "allowScripts": {
+    "electron@35.7.5": true
+  }
+}

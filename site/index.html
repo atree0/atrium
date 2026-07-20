@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atrium — Team chat, refined.</title>
+  <meta name="description" content="Atrium is open-source team chat with a quiet, Linear-style interface. Channels, threads, apps, federation, and a Mac app — self-hosted on one box, no database required." />
+  <meta name="theme-color" content="#08090a" />
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+  <style>
+    @font-face { font-family: 'Inter'; src: url('assets/inter-var.woff2') format('woff2-variations'); font-weight: 100 900; font-display: swap; }
+    :root {
+      --bg-0: #08090a;
+      --bg-1: #0b0c0e;
+      --bg-2: #101216;
+      --bg-3: #16181d;
+      --bg-4: #1c1f26;
+      --border: rgba(255,255,255,0.07);
+      --border-mid: rgba(255,255,255,0.10);
+      --border-strong: rgba(255,255,255,0.13);
+      --text-1: #f7f8f8;
+      --text-2: #969ca5;
+      --text-3: #62666d;
+      --accent: #5e6ad2;
+      --accent-bright: #7c87e6;
+      --accent-soft: rgba(94,106,210,0.16);
+      --accent-text: #a3aef0;
+      --ok: #7bc7a2;
+      --r-sm: 7px;
+      --r-md: 9px;
+      --r-lg: 12px;
+      --font: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background: var(--bg-0);
+      color: var(--text-1);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+      font-feature-settings: "cv01","cv02","cv03","cv04";
+    }
+    ::selection { background: rgba(94,106,210,0.35); color: #fff; }
+    a { color: var(--accent-text); text-decoration: none; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+    .mono { font-family: var(--mono); }
+
+    /* film grain — inline SVG turbulence, no network */
+    .grain {
+      position: fixed; inset: -50%; z-index: 999; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.024;
+    }
+
+    /* ============================== nav ============================== */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      background: rgba(8,9,10,0.6);
+      -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+      border-bottom: 1px solid transparent;
+      transition: border-color .3s ease, background .3s ease;
+    }
+    nav.scrolled { border-bottom-color: var(--border); background: rgba(8,9,10,0.8); }
+    .nav-inner { display: flex; align-items: center; height: 58px; gap: 28px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; letter-spacing: -0.01em; color: var(--text-1); }
+    .brand img { width: 25px; height: 25px; border-radius: 6px; }
+    .nav-links { display: flex; gap: 4px; margin-left: 8px; }
+    .nav-links a {
+      font-size: 13px; color: var(--text-2); padding: 6px 11px; border-radius: var(--r-sm);
+      transition: color .12s, background .12s;
+    }
+    .nav-links a:hover { color: var(--text-1); background: rgba(255,255,255,0.05); }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .nav-gh { font-size: 13px; color: var(--text-2); padding: 6px 10px; border-radius: var(--r-sm); transition: color .12s; }
+    .nav-gh:hover { color: var(--text-1); }
+    .nav-cta {
+      font-size: 13px; font-weight: 600; color: #fff;
+      padding: 6.5px 14px; border-radius: var(--r-sm);
+      background: var(--accent); border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.14);
+      transition: filter .14s, transform .14s;
+    }
+    .nav-cta:hover { filter: brightness(1.12); }
+
+    /* ============================== hero ============================== */
+    .hero { position: relative; padding: 190px 0 72px; text-align: center; }
+    .hero-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    /* dot grid, faded by a radial mask */
+    .hero-fx .dots {
+      position: absolute; inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.09) 1px, transparent 1.4px);
+      background-size: 28px 28px;
+      -webkit-mask-image: radial-gradient(ellipse 62% 52% at 50% 18%, #000 20%, transparent 72%);
+      mask-image: radial-gradient(ellipse 62% 52% at 50% 18%, #000 20%, transparent 72%);
+    }
+    /* aurora blooms */
+    .hero-fx .bloom {
+      position: absolute; border-radius: 50%; filter: blur(70px); will-change: transform, opacity;
+    }
+    .hero-fx .bloom.a {
+      width: 720px; height: 460px; left: 50%; top: -220px; transform: translateX(-50%);
+      background: radial-gradient(ellipse at center, rgba(94,106,210,0.22), transparent 65%);
+      animation: bloomA 11s ease-in-out infinite;
+    }
+    .hero-fx .bloom.b {
+      width: 420px; height: 340px; left: calc(50% - 420px); top: 40px;
+      background: radial-gradient(ellipse at center, rgba(94,106,210,0.10), transparent 65%);
+      animation: bloomB 14s ease-in-out infinite;
+    }
+    .hero-fx .bloom.c {
+      width: 420px; height: 340px; left: calc(50% + 40px); top: 110px;
+      background: radial-gradient(ellipse at center, rgba(124,135,230,0.08), transparent 65%);
+      animation: bloomB 16s ease-in-out infinite reverse;
+    }
+    @keyframes bloomA { 50% { opacity: 0.7; transform: translateX(-50%) translateY(22px) scale(1.06); } }
+    @keyframes bloomB { 50% { opacity: 0.55; transform: translateY(-18px); } }
+
+    /* the light well — inline SVG so the rings can breathe */
+    .well-wrap { position: relative; width: 138px; height: 138px; margin: 0 auto 36px; }
+    .well-halo {
+      position: absolute; inset: -70px; border-radius: 50%; z-index: 0;
+      background: conic-gradient(from 0deg,
+        transparent 0deg, rgba(94,106,210,0.30) 65deg, transparent 130deg,
+        transparent 180deg, rgba(94,106,210,0.18) 245deg, transparent 310deg);
+      filter: blur(34px);
+      animation: haloSpin 16s linear infinite;
+    }
+    @keyframes haloSpin { to { transform: rotate(360deg); } }
+    .well-glow {
+      position: absolute; inset: -4px; border-radius: 34px; z-index: 0;
+      box-shadow: 0 0 70px 8px rgba(94,106,210,0.26);
+      animation: wellPulse 5s ease-in-out infinite;
+    }
+    @keyframes wellPulse { 50% { box-shadow: 0 0 110px 18px rgba(94,106,210,0.38); } }
+    svg.well {
+      position: relative; z-index: 1; width: 100%; height: 100%; display: block;
+      border-radius: 32px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px var(--border-mid);
+    }
+    .well .ring { transform-box: fill-box; transform-origin: center; }
+    .well .r1 { animation: ringBreath 5s ease-in-out infinite; }
+    .well .r2 { animation: ringBreath 5s ease-in-out .45s infinite; }
+    .well .core {
+      transform-box: fill-box; transform-origin: center;
+      animation: coreGlow 5s ease-in-out .9s infinite;
+    }
+    @keyframes ringBreath { 50% { transform: scale(1.045); opacity: 1; } }
+    @keyframes coreGlow { 50% { transform: scale(1.09); filter: drop-shadow(0 0 7px rgba(255,255,255,0.85)); } }
+
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12.5px; font-weight: 500; color: var(--text-2);
+      padding: 5px 13px 5px 9px; border-radius: 100px; margin-bottom: 26px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      transition: border-color .2s, color .2s;
+    }
+    .pill:hover { border-color: var(--border-strong); color: var(--text-1); }
+    .pill .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent-bright);
+      box-shadow: 0 0 8px 1px rgba(124,135,230,0.8);
+      animation: pillDot 2.6s ease-in-out infinite;
+    }
+    @keyframes pillDot { 50% { opacity: 0.45; } }
+    .pill b { color: var(--accent-text); font-weight: 600; }
+
+    h1 {
+      font-size: clamp(44px, 7.4vw, 82px);
+      font-weight: 700; letter-spacing: -0.045em; line-height: 0.98;
+      margin-bottom: 22px;
+    }
+    h1 .l1, h1 .l2 { display: block; }
+    h1 .l1 {
+      background: linear-gradient(180deg, #ffffff 40%, #b4b9c2);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    h1 .l2 {
+      background: linear-gradient(120deg, #cdd3f5 0%, var(--accent-text) 45%, #8b96e8 80%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .hero p.lede {
+      font-size: clamp(15.5px, 2vw, 18px); color: var(--text-2); line-height: 1.65;
+      max-width: 640px; margin: 0 auto 36px; letter-spacing: -0.008em;
+    }
+    .hero p.lede b { color: var(--text-1); font-weight: 600; }
+
+    .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; position: relative; z-index: 2; }
+    .btn {
+      position: relative; display: inline-flex; align-items: center; gap: 8px; overflow: hidden;
+      font-size: 14px; font-weight: 600; letter-spacing: -0.01em;
+      padding: 11px 22px; border-radius: 8px;
+      transition: transform .16s ease, filter .16s ease, border-color .16s ease, background .16s ease;
+      border: 1px solid transparent; cursor: pointer;
+    }
+    .btn:active { transform: translateY(0) scale(0.99); }
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      border-color: rgba(255,255,255,0.16);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.5), 0 8px 28px rgba(94,106,210,0.32), inset 0 1px 0 rgba(255,255,255,0.16);
+    }
+    .btn-primary:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.5), 0 12px 36px rgba(94,106,210,0.44), inset 0 1px 0 rgba(255,255,255,0.16); }
+    .btn-primary::after {
+      content: ""; position: absolute; top: 0; bottom: 0; left: -80%; width: 60%;
+      background: linear-gradient(100deg, transparent, rgba(255,255,255,0.28), transparent);
+      transform: skewX(-18deg); transition: left .5s ease; pointer-events: none;
+    }
+    .btn-primary:hover::after { left: 130%; }
+    .btn-ghost { background: var(--bg-3); border-color: var(--border-strong); color: var(--text-1); }
+    .btn-ghost:hover { border-color: rgba(94,106,210,0.6); background: var(--bg-4); transform: translateY(-1px); }
+    .btn .arr { transition: transform .16s ease; font-weight: 500; }
+    .btn:hover .arr { transform: translateX(3px); }
+    .hero .micro { margin-top: 20px; font-size: 12.5px; color: var(--text-3); }
+    .hero .micro code { font-family: var(--mono); color: var(--text-2); font-size: 11.5px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; }
+
+    /* ============================== screenshot ============================== */
+    .stage { position: relative; margin-top: 66px; perspective: 1400px; z-index: 2; }
+    .stage::before {
+      content: ""; position: absolute; inset: 4% -8% -14% -8%; z-index: 0; pointer-events: none;
+      background: radial-gradient(ellipse 58% 58% at 50% 42%, rgba(94,106,210,0.16), transparent 68%);
+    }
+    .frame {
+      position: relative; z-index: 1; max-width: 1000px; margin: 0 auto;
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-1);
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 40px 110px rgba(0,0,0,0.7), 0 20px 50px rgba(0,0,0,0.5);
+      transform: rotateX(var(--tilt, 0deg)) scale(var(--tscale, 1));
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+    .frame::after { /* top edge catch-light */
+      content: ""; position: absolute; top: 0; left: 8%; right: 8%; height: 1px; z-index: 3;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+    }
+    .frame .bar {
+      display: flex; align-items: center; gap: 6.5px; padding: 10px 14px;
+      background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+      border-bottom: 1px solid var(--border);
+    }
+    .frame .bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--bg-4); border: 1px solid rgba(255,255,255,0.06); }
+    .frame .bar .url {
+      margin: 0 auto; display: flex; align-items: center; gap: 7px;
+      font-size: 11.5px; color: var(--text-3); font-family: var(--mono);
+      background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 3.5px 12px;
+    }
+    .frame .bar .url .lock { color: var(--ok); font-size: 10px; }
+    .frame > img { display: block; width: 100%; }
+
+    /* ============================== stats strip ============================== */
+    .stats { margin: 84px auto 0; max-width: 1000px; }
+    .stats-row {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    }
+    .stat { text-align: center; padding: 30px 12px; position: relative; }
+    .stat + .stat::before {
+      content: ""; position: absolute; left: 0; top: 22%; bottom: 22%; width: 1px;
+      background: linear-gradient(180deg, transparent, var(--border-strong), transparent);
+    }
+    .stat .num {
+      font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.035em; line-height: 1;
+      background: linear-gradient(180deg, #fff 30%, #9ba1ab);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .stat .lbl { margin-top: 9px; font-size: 12px; color: var(--text-3); letter-spacing: 0.01em; }
+
+    /* ============================== sections ============================== */
+    section { padding: 118px 0; position: relative; }
+    .kicker {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11.5px; font-weight: 650; letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--accent-text); margin-bottom: 14px;
+    }
+    .kicker::before { content: ""; width: 18px; height: 1px; background: var(--accent); opacity: 0.7; }
+    .center .kicker::before { display: none; }
+    h2 { font-size: clamp(28px, 4vw, 42px); font-weight: 700; letter-spacing: -0.032em; line-height: 1.1; margin-bottom: 16px; }
+    h2 .dim { color: var(--text-3); }
+    .sub { font-size: 15.5px; color: var(--text-2); line-height: 1.65; max-width: 580px; }
+    .center { text-align: center; }
+    .center .sub { margin: 0 auto; }
+
+    /* ============================== bento ============================== */
+    .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-top: 52px; text-align: left; }
+    .tile {
+      position: relative; overflow: hidden;
+      background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--r-lg);
+      padding: 26px; display: flex; flex-direction: column;
+      transition: background .25s ease, transform .25s ease;
+    }
+    .tile:hover { background: var(--bg-2); transform: translateY(-2px); }
+    /* cursor-tracked border glow */
+    .tile::before {
+      content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; z-index: 2;
+      background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 0%), rgba(94,106,210,0.65), transparent 70%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+      opacity: 0; transition: opacity .3s ease; pointer-events: none;
+    }
+    .tile:hover::before { opacity: 1; }
+    .tile::after { /* interior wash */
+      content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgba(94,106,210,0.07), transparent 70%);
+      opacity: 0; transition: opacity .3s ease;
+    }
+    .tile:hover::after { opacity: 1; }
+    .tile > * { position: relative; z-index: 1; }
+    .tile h3 { font-size: 15px; font-weight: 650; letter-spacing: -0.012em; margin-bottom: 7px; }
+    .tile > p { font-size: 13.5px; color: var(--text-2); line-height: 1.62; }
+    .tile p code { font-family: var(--mono); font-size: 11.5px; color: var(--accent-text); }
+    .t-a { grid-column: span 4; }
+    .t-b { grid-column: span 2; }
+    .t-c, .t-d, .t-e { grid-column: span 2; }
+
+    /* mini chat mock (tile A) */
+    .mini-chat {
+      margin-top: 22px; padding: 16px 16px 14px;
+      background: var(--bg-0); border: 1px solid var(--border); border-radius: var(--r-md);
+      font-size: 12.5px; line-height: 1.5;
+    }
+    .mc-msg { display: flex; gap: 10px; }
+    .mc-msg + .mc-msg { margin-top: 13px; }
+    .mc-av {
+      flex: none; width: 26px; height: 26px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9.5px; font-weight: 700; color: #fff; letter-spacing: 0;
+    }
+    .mc-av.ada { background: linear-gradient(135deg, #5e6ad2, #7c87e6); }
+    .mc-av.grace { background: linear-gradient(135deg, #2e9e6b, #56c690); }
+    .mc-name { font-weight: 650; font-size: 12.5px; }
+    .mc-time { color: var(--text-3); font-size: 10.5px; margin-left: 6px; }
+    .mc-body { color: var(--text-2); margin-top: 1px; }
+    .mc-body b { color: var(--text-1); font-weight: 600; }
+    .mc-body .mention { color: var(--accent-text); background: var(--accent-soft); border-radius: 4px; padding: 0.5px 4px; font-weight: 500; }
+    .mc-reacts { display: flex; gap: 6px; margin-top: 7px; }
+    .mc-reacts span {
+      font-size: 10.5px; padding: 2px 8px; border-radius: 100px; color: var(--text-2);
+      background: var(--bg-2); border: 1px solid var(--border);
+    }
+    .mc-reacts span.on { background: var(--accent-soft); border-color: rgba(94,106,210,0.45); color: var(--accent-text); }
+    .mc-thread { display: inline-block; margin-top: 7px; font-size: 11px; color: var(--accent-text); font-weight: 550; }
+    .mc-typing { display: flex; align-items: center; gap: 8px; margin-top: 13px; padding-left: 36px; color: var(--text-3); font-size: 11px; }
+    .mc-typing .tdots { display: inline-flex; gap: 3px; }
+    .mc-typing .tdots i { width: 4px; height: 4px; border-radius: 50%; background: var(--text-3); animation: typing 1.3s ease-in-out infinite; }
+    .mc-typing .tdots i:nth-child(2) { animation-delay: .18s; }
+    .mc-typing .tdots i:nth-child(3) { animation-delay: .36s; }
+    @keyframes typing { 35% { transform: translateY(-3px); background: var(--text-2); } 70% { transform: none; } }
+
+    /* mini webhook (tile B) */
+    .mini-hook {
+      margin-top: auto; padding: 13px 14px;
+      background: var(--bg-0); border: 1px solid var(--border); border-radius: var(--r-md);
+      font-family: var(--mono); font-size: 11px; line-height: 1.75; color: #c9ced8;
+      overflow-x: auto; white-space: nowrap;
+    }
+    .mini-hook .c { color: var(--text-3); }
+    .mini-hook .g { color: var(--ok); }
+    .mini-hook .b { color: var(--accent-text); }
+
+    /* mini search (tile C) */
+    .mini-search { margin-top: auto; }
+    .mini-search .field {
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px; overflow: hidden;
+      background: var(--bg-0); border: 1px solid rgba(94,106,210,0.4); border-radius: var(--r-sm);
+      font-family: var(--mono); font-size: 11.5px; color: var(--text-2);
+      box-shadow: 0 0 0 3px rgba(94,106,210,0.09);
+    }
+    .mini-search .field .q { color: var(--text-1); }
+    .mini-search .field .op { color: var(--accent-text); }
+    .mini-search .field .caret { width: 1.5px; height: 13px; background: var(--accent-text); animation: caret 1.1s steps(1) infinite; }
+    @keyframes caret { 50% { opacity: 0; } }
+    .mini-search .hit {
+      margin-top: 8px; padding: 9px 12px; border-radius: var(--r-sm);
+      background: var(--bg-0); border: 1px solid var(--border);
+      font-size: 11.5px; color: var(--text-2); line-height: 1.55;
+    }
+    .mini-search .hit .in { color: var(--text-3); font-family: var(--mono); font-size: 10px; }
+    .mini-search mark { background: var(--accent-soft); color: var(--accent-text); border-radius: 3px; padding: 0 2px; }
+
+    /* mini titlebar (tile D) */
+    .mini-mac {
+      margin-top: auto; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: var(--bg-0);
+    }
+    .mini-mac .tb { display: flex; align-items: center; gap: 5.5px; padding: 8px 11px; background: var(--bg-2); border-bottom: 1px solid var(--border); }
+    .mini-mac .tb i { width: 9px; height: 9px; border-radius: 50%; }
+    .mini-mac .tb i:nth-child(1) { background: #f2555a; }
+    .mini-mac .tb i:nth-child(2) { background: #f5b83d; }
+    .mini-mac .tb i:nth-child(3) { background: #43c25c; }
+    .mini-mac .tb span { margin-left: 6px; font-size: 10.5px; color: var(--text-3); }
+    .mini-mac .body { padding: 11px 12px; display: flex; align-items: center; gap: 9px; }
+    .mini-mac .body img { width: 26px; height: 26px; border-radius: 7px; }
+    .mini-mac .badge {
+      margin-left: auto; min-width: 19px; height: 19px; padding: 0 6px; border-radius: 100px;
+      background: var(--accent); color: #fff; font-size: 10.5px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 12px rgba(94,106,210,0.6);
+    }
+    .mini-mac .body p { font-size: 11px; color: var(--text-2); line-height: 1.4; }
+
+    /* chips (tile E) */
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: auto; padding-top: 16px; }
+    .chips span {
+      font-size: 11px; font-family: var(--mono); color: var(--text-2);
+      padding: 4px 10px; border-radius: 100px;
+      background: var(--bg-0); border: 1px solid var(--border);
+      transition: color .15s, border-color .15s;
+    }
+    .tile:hover .chips span { border-color: var(--border-strong); }
+    .chips span.hot { color: var(--accent-text); background: var(--accent-soft); border-color: rgba(94,106,210,0.35); }
+
+    /* ============================== platform ============================== */
+    .band { background: var(--bg-1); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .split { display: grid; grid-template-columns: 1.02fr 1fr; gap: 56px; align-items: center; }
+    .check-list { list-style: none; margin-top: 26px; display: flex; flex-direction: column; gap: 13px; }
+    .check-list li { display: flex; gap: 12px; font-size: 14px; color: var(--text-2); line-height: 1.58; }
+    .check-list li .tick {
+      flex: none; width: 18px; height: 18px; margin-top: 1.5px; border-radius: 5px;
+      background: var(--accent-soft); border: 1px solid rgba(94,106,210,0.4);
+      color: var(--accent-text); font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .check-list li b { color: var(--text-1); font-weight: 600; }
+
+    /* terminal */
+    .term {
+      position: relative;
+      background: #0a0b0d; border: 1px solid var(--border-mid); border-radius: var(--r-lg);
+      overflow: hidden; font-family: var(--mono); font-size: 12.25px; line-height: 1.85;
+      box-shadow: 0 24px 70px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .term .t-head {
+      display: flex; align-items: center; gap: 6px; padding: 10px 13px;
+      background: var(--bg-2); border-bottom: 1px solid var(--border);
+    }
+    .term .t-head i { width: 10px; height: 10px; border-radius: 50%; background: var(--bg-4); border: 1px solid rgba(255,255,255,0.06); }
+    .term .t-head .t-title { margin-left: 8px; font-size: 11px; color: var(--text-3); }
+    .term .copy {
+      margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--font); font-size: 11px; font-weight: 600; color: var(--text-2);
+      background: var(--bg-3); border: 1px solid var(--border-mid); border-radius: 6px;
+      padding: 4px 10px; cursor: pointer; transition: color .15s, border-color .15s, background .15s;
+    }
+    .term .copy:hover { color: var(--text-1); border-color: var(--border-strong); }
+    .term .copy.done { color: var(--ok); border-color: rgba(123,199,162,0.4); }
+    .term pre { padding: 18px 20px; overflow-x: auto; color: #ced3dc; }
+    .term .p { color: var(--accent-text); user-select: none; }
+    .term .c { color: var(--text-3); }
+    .term .g { color: var(--ok); }
+    .term .b { color: var(--accent-text); }
+    .term .w { color: #eceef2; }
+    .term .flag { color: #c7a0e8; }
+
+    /* ============================== federation ============================== */
+    .fed-wrap { position: relative; margin: 60px auto 0; max-width: 780px; }
+    .fed-row { display: flex; align-items: center; }
+    .fed-node {
+      flex: none; position: relative; width: 190px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      padding: 24px 20px 20px;
+      background: var(--bg-1); border: 1px solid var(--border-strong); border-radius: var(--r-lg);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.4);
+    }
+    .fed-node::before {
+      content: ""; position: absolute; inset: -1px; border-radius: inherit; z-index: -1;
+      box-shadow: 0 0 44px 2px rgba(94,106,210,0.16);
+      animation: nodeGlow 4s ease-in-out infinite;
+    }
+    .fed-node.right::before { animation-delay: 2s; }
+    @keyframes nodeGlow { 50% { box-shadow: 0 0 64px 6px rgba(94,106,210,0.28); } }
+    .fed-node img { width: 46px; height: 46px; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.5); }
+    .fed-node .host { font-size: 12px; color: var(--text-2); font-family: var(--mono); }
+    .fed-node .tag { font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 650; }
+    .fed-wire { flex: 1; position: relative; height: 44px; margin: 0 -1px; }
+    .fed-wire .rail {
+      position: absolute; left: 0; right: 0; top: 50%; height: 1px;
+      background: linear-gradient(90deg, rgba(94,106,210,0.7), rgba(94,106,210,0.25) 50%, rgba(94,106,210,0.7));
+    }
+    .fed-wire .packet {
+      position: absolute; top: 50%; left: 0; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px;
+      border-radius: 50%; background: #fff;
+      box-shadow: 0 0 10px 3px rgba(124,135,230,0.9), 0 0 26px 8px rgba(94,106,210,0.5);
+      animation: packet 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    .fed-wire .packet.rtn { animation: packetBack 2.8s cubic-bezier(0.45, 0, 0.55, 1) 1.4s infinite; opacity: 0; }
+    @keyframes packet {
+      0% { left: 0%; opacity: 0; }
+      6% { opacity: 1; }
+      44% { opacity: 1; }
+      50% { left: 100%; opacity: 0; }
+      100% { left: 100%; opacity: 0; }
+    }
+    @keyframes packetBack {
+      0% { left: 100%; opacity: 0; }
+      6% { opacity: 1; }
+      44% { opacity: 1; }
+      50% { left: 0%; opacity: 0; }
+      100% { left: 0%; opacity: 0; }
+    }
+    .fed-label {
+      text-align: center; margin-top: 22px;
+      font-size: 11.5px; color: var(--text-3); font-family: var(--mono);
+    }
+    .fed-label b { color: var(--text-2); font-weight: 500; }
+    .fed-points { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 46px; text-align: left; }
+    .fed-points .fp { padding: 18px 20px; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--r-md); }
+    .fed-points .fp h4 { font-size: 13px; font-weight: 650; margin-bottom: 5px; }
+    .fed-points .fp p { font-size: 12.5px; color: var(--text-2); line-height: 1.55; }
+
+    /* ============================== deploy ============================== */
+    .stepper { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 54px; counter-reset: step; }
+    .stepper::before {
+      content: ""; position: absolute; top: 15px; left: calc(12.5% ); right: calc(12.5%); height: 1px;
+      background: linear-gradient(90deg, rgba(94,106,210,0.5), var(--border-strong) 35%, var(--border-strong) 65%, rgba(94,106,210,0.5));
+    }
+    .stp { position: relative; text-align: center; padding: 0 8px; }
+    .stp .dot {
+      counter-increment: step; position: relative; z-index: 1;
+      width: 31px; height: 31px; margin: 0 auto 16px; border-radius: 9px;
+      background: var(--bg-0); border: 1px solid rgba(94,106,210,0.5);
+      color: var(--accent-text); font-size: 12.5px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 5px var(--bg-0), 0 0 18px rgba(94,106,210,0.25);
+    }
+    .stp .dot::before { content: counter(step); }
+    .stp h3 { font-size: 14px; font-weight: 650; margin-bottom: 6px; letter-spacing: -0.01em; }
+    .stp p { font-size: 12.5px; color: var(--text-2); line-height: 1.58; max-width: 220px; margin: 0 auto; }
+    .stp p code { font-family: var(--mono); font-size: 11px; color: var(--accent-text); }
+
+    .deploy-term { max-width: 760px; margin: 52px auto 0; }
+    .needs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 40px; }
+    .need {
+      padding: 22px 24px; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--r-lg);
+    }
+    .need h3 { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 650; margin-bottom: 10px; }
+    .need h3 .mk { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+    .need.yes h3 .mk { background: rgba(123,199,162,0.14); border: 1px solid rgba(123,199,162,0.35); color: var(--ok); }
+    .need.no h3 .mk { background: rgba(255,255,255,0.05); border: 1px solid var(--border-mid); color: var(--text-3); }
+    .need p { font-size: 13px; color: var(--text-2); line-height: 1.75; }
+    .need p code { font-family: var(--mono); font-size: 11.5px; color: var(--accent-text); }
+    .need.no p { color: var(--text-3); }
+    .need.no p s { text-decoration-color: rgba(255,255,255,0.25); }
+
+    /* ============================== final ============================== */
+    .final { position: relative; text-align: center; padding: 150px 0 130px; overflow: hidden; }
+    .final::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse 52% 62% at 50% 108%, rgba(94,106,210,0.20), transparent 68%);
+    }
+    .final::after {
+      content: ""; position: absolute; left: 20%; right: 20%; bottom: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(94,106,210,0.55), transparent);
+    }
+    .final .mark { width: 56px; height: 56px; margin: 0 auto 28px; position: relative; }
+    .final .mark img { width: 100%; height: 100%; border-radius: 14px; box-shadow: 0 0 0 1px var(--border-mid), 0 0 44px rgba(94,106,210,0.35); }
+    .final h2 { font-size: clamp(32px, 4.8vw, 52px); letter-spacing: -0.04em; }
+    .final .sub { margin: 0 auto 36px; }
+
+    /* ============================== footer ============================== */
+    footer { border-top: 1px solid var(--border); padding: 44px 0 40px; background: var(--bg-0); }
+    .foot-top { display: flex; align-items: flex-start; gap: 60px; flex-wrap: wrap; }
+    .foot-brand { max-width: 300px; }
+    .foot-brand .brand { margin-bottom: 12px; }
+    .foot-brand p { font-size: 12.5px; color: var(--text-3); line-height: 1.6; }
+    .foot-cols { display: flex; gap: 68px; margin-left: auto; flex-wrap: wrap; }
+    .foot-col h4 { font-size: 11.5px; font-weight: 650; color: var(--text-1); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 14px; }
+    .foot-col a { display: block; font-size: 13px; color: var(--text-2); padding: 4px 0; transition: color .12s; }
+    .foot-col a:hover { color: var(--text-1); }
+    .foot-bottom {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--border);
+      font-size: 12px; color: var(--text-3);
+    }
+    .foot-bottom .spacer { margin-left: auto; }
+
+    /* ============================== reveal ============================== */
+    .reveal {
+      opacity: 0; transform: translateY(22px);
+      transition: opacity .65s cubic-bezier(0.22, 1, 0.36, 1), transform .65s cubic-bezier(0.22, 1, 0.36, 1);
+      transition-delay: var(--rd, 0s);
+    }
+    .reveal.from-left { transform: translateX(-26px); }
+    .reveal.from-right { transform: translateX(26px); }
+    .reveal.zoom { transform: scale(0.96) translateY(14px); }
+    .reveal.in { opacity: 1; transform: none; }
+    .d1 { --rd: .07s; } .d2 { --rd: .14s; } .d3 { --rd: .21s; } .d4 { --rd: .28s; } .d5 { --rd: .35s; }
+
+    /* ============================== responsive ============================== */
+    @media (max-width: 960px) {
+      .bento { grid-template-columns: repeat(2, 1fr); }
+      .t-a { grid-column: span 2; }
+      .t-b, .t-c, .t-d, .t-e { grid-column: span 1; }
+      .fed-points { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 860px) {
+      .nav-links, .nav-gh { display: none; }
+      section { padding: 76px 0; }
+      .hero { padding: 140px 0 56px; }
+      .well-wrap { width: 108px; height: 108px; margin-bottom: 28px; }
+      .split { grid-template-columns: 1fr; gap: 36px; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); border: none; gap: 1px; background: var(--border); border-radius: var(--r-lg); overflow: hidden; }
+      .stat { background: var(--bg-0); padding: 24px 10px; }
+      .stat + .stat::before { display: none; }
+      .stat:last-child { grid-column: span 2; }
+      .stepper { grid-template-columns: 1fr; gap: 0; padding-left: 6px; }
+      .stepper::before { top: 15px; bottom: 15px; left: 21px; right: auto; width: 1px; height: auto;
+        background: linear-gradient(180deg, rgba(94,106,210,0.5), var(--border-strong) 35%, var(--border-strong) 65%, rgba(94,106,210,0.5)); }
+      .stp { display: flex; gap: 18px; text-align: left; padding: 14px 0; }
+      .stp .dot { margin: 0; flex: none; }
+      .stp p { margin: 0; max-width: none; }
+      .needs { grid-template-columns: 1fr; }
+      .fed-row { flex-direction: column; gap: 0; }
+      .fed-node { width: min(280px, 100%); }
+      .fed-wire { width: 1px; height: 74px; flex: none; }
+      .fed-wire .rail { left: 50%; top: 0; bottom: 0; width: 1px; height: auto;
+        background: linear-gradient(180deg, rgba(94,106,210,0.7), rgba(94,106,210,0.25) 50%, rgba(94,106,210,0.7)); }
+      .fed-wire .packet { left: 50% !important; top: 0; margin: -3.5px 0 0 -3px; animation-name: packetV; }
+      .fed-wire .packet.rtn { animation-name: packetVBack; }
+      @keyframes packetV { 0% { top: 0%; opacity: 0; } 6% { opacity: 1; } 44% { opacity: 1; } 50% { top: 100%; opacity: 0; } 100% { top: 100%; opacity: 0; } }
+      @keyframes packetVBack { 0% { top: 100%; opacity: 0; } 6% { opacity: 1; } 44% { opacity: 1; } 50% { top: 0%; opacity: 0; } 100% { top: 0%; opacity: 0; } }
+      .foot-cols { margin-left: 0; gap: 44px; }
+      .final { padding: 100px 0 90px; }
+    }
+    @media (max-width: 640px) {
+      .bento { grid-template-columns: 1fr; }
+      .t-a, .t-b, .t-c, .t-d, .t-e { grid-column: span 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .reveal { opacity: 1; transform: none; }
+      .frame { transform: none !important; }
+      .fed-wire .packet { opacity: 1; left: 50%; }
+      .fed-wire .packet.rtn { display: none; }
+    }
+
+    /* ============================== interactive product demo ============================== */
+    .demo-tag { margin-left: auto; font-size: 10.5px; color: var(--accent-text); background: var(--accent-soft); border: 1px solid rgba(94,106,210,0.35); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .pd { display: flex; height: 600px; background: var(--bg-0); font-size: 14px; text-align: left; position: relative; overflow: hidden; }
+    .pd-rail { width: 56px; flex: none; background: var(--bg-1); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 0; }
+    .pd-logo { width: 30px; height: 30px; border-radius: 8px; margin-bottom: 4px; }
+    .pd-ws { width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(150deg, #5e6ad2, #454fa7); color: #fff; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-strong); cursor: pointer; }
+    .pd-ws:last-of-type { background: linear-gradient(150deg, #3a3f4d, #23262e); }
+    .pd-ws.active { box-shadow: 0 0 0 2px var(--accent); }
+    .pd-iconbtn { position: relative; width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--text-2); background: none; border: none; cursor: pointer; }
+    .pd-iconbtn:hover { background: var(--bg-4); color: var(--text-1); }
+    .pd-iconbtn svg { width: 16px; height: 16px; }
+    .pd-badge { position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid var(--bg-1); }
+    .pd-side { width: 208px; flex: none; background: var(--bg-1); border-right: 1px solid var(--border); padding: 12px 8px; overflow-y: auto; }
+    .pd-wsname { font-size: 13.5px; font-weight: 650; padding: 0 8px 10px; border-bottom: 1px solid var(--border); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .pd-wsname::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+    .pd-sec { font-size: 10.5px; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); padding: 10px 8px 4px; }
+    .pd-ch, .pd-dm { display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 8px; border-radius: 5px; font-size: 13px; color: var(--text-2); background: none; border: none; cursor: pointer; text-align: left; }
+    .pd-ch:hover, .pd-dm:hover { background: var(--bg-4); color: var(--text-1); }
+    .pd-ch.active { background: rgba(255,255,255,0.07); color: var(--text-1); }
+    .pd-ch .hash { color: var(--text-3); }
+    .pd-ch .cnt { margin-left: auto; min-width: 16px; height: 15px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+    .pd-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); flex: none; }
+    .pd-dot.off { background: var(--text-3); }
+    .pd-dm .cnt { margin-left: auto; min-width: 16px; height: 15px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+    .pd-apptag { font-size: 9px; font-weight: 700; background: var(--accent-soft); color: var(--accent-text); border-radius: 3px; padding: 1px 4px; }
+    .pd-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .pd-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .pd-head b { font-size: 13.5px; font-weight: 650; }
+    .pd-head span { font-size: 11.5px; color: var(--text-3); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pd-hbtn { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-2); background: none; border: none; padding: 4px 7px; border-radius: 5px; cursor: pointer; }
+    .pd-hbtn:hover { background: var(--bg-4); color: var(--text-1); }
+    .pd-hbtn svg { width: 14px; height: 14px; }
+    .pd-msgs { flex: 1; overflow-y: auto; padding: 10px 0; }
+    .pd-day { display: flex; align-items: center; gap: 10px; padding: 8px 16px 4px; }
+    .pd-day::before, .pd-day::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+    .pd-day span { font-size: 10.5px; font-weight: 650; color: var(--text-3); }
+    .pd-msg { display: flex; gap: 9px; padding: 4px 16px; position: relative; }
+    .pd-msg:hover { background: rgba(255,255,255,0.03); }
+    .pd-av { width: 30px; height: 30px; border-radius: 5px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; margin-top: 1px; }
+    .pd-mbody { flex: 1; min-width: 0; }
+    .pd-mhead { display: flex; align-items: baseline; gap: 7px; }
+    .pd-mhead b { font-size: 13px; font-weight: 650; }
+    .pd-mhead .pd-apptag { margin-left: 2px; }
+    .pd-mhead span { font-size: 10.5px; color: var(--text-3); }
+    .pd-mtext { font-size: 13.5px; line-height: 1.55; color: #d8dbe0; }
+    .pd-mtext code { background: rgba(255,255,255,0.07); border-radius: 4px; padding: 1px 4px; font-family: var(--mono); font-size: 12px; }
+    .pd-mtext pre { background: var(--bg-1); border: 1px solid var(--border); border-radius: 7px; padding: 8px 11px; margin: 5px 0; font-family: var(--mono); font-size: 12px; overflow-x: auto; }
+    .pd-mtext .mention { background: var(--accent-soft); color: var(--accent-text); border-radius: 4px; padding: 0 3px; font-weight: 550; }
+    .pd-mtext .mention.me { background: rgba(94,106,210,0.38); color: #d3d9ff; }
+    .pd-mimg { margin-top: 6px; width: 84px; height: 84px; border-radius: 8px; border: 1px solid var(--border); cursor: zoom-in; background: var(--bg-3); padding: 8px; }
+    .pd-reacts { display: flex; gap: 4px; margin-top: 4px; }
+    .pd-react { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px; font-size: 12px; background: var(--bg-3); border: 1px solid var(--border); cursor: pointer; }
+    .pd-react:hover { border-color: var(--border-strong); }
+    .pd-react.mine { background: var(--accent-soft); border-color: rgba(94,106,210,0.5); }
+    .pd-react .n { font-size: 10.5px; font-weight: 650; color: var(--text-2); }
+    .pd-tlink { display: inline-flex; margin-top: 3px; padding: 3px 7px; border-radius: 5px; font-size: 11.5px; font-weight: 600; color: var(--accent-text); background: none; border: 1px solid transparent; cursor: pointer; }
+    .pd-tlink:hover { background: var(--accent-soft); border-color: rgba(94,106,210,0.4); }
+    .pd-mact { position: absolute; top: -12px; right: 14px; display: none; gap: 1px; padding: 2px; background: var(--bg-3); border: 1px solid var(--border); border-radius: 7px; box-shadow: 0 4px 12px rgba(0,0,0,0.45); }
+    .pd-msg:hover .pd-mact { display: flex; }
+    .pd-mact button { width: 24px; height: 22px; border-radius: 5px; font-size: 12px; color: var(--text-2); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .pd-mact button:hover { background: var(--bg-4); color: var(--text-1); }
+    .pd-composer { flex: none; display: flex; align-items: center; gap: 5px; margin: 8px 14px 12px; padding: 5px 7px; background: var(--bg-3); border: 1px solid var(--border-strong); border-radius: 10px; }
+    .pd-composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .pd-composer input { flex: 1; background: none; border: none; outline: none; font-size: 13px; color: var(--text-1); padding: 5px 4px; font-family: inherit; }
+    .pd-composer input::placeholder { color: var(--text-3); }
+    .pd-send { width: 28px; height: 28px; border-radius: 7px; background: var(--accent); color: #fff; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .pd-send:hover { filter: brightness(1.12); }
+    .pd-send svg { width: 14px; height: 14px; }
+    .pd-thread { width: 300px; flex: none; background: var(--bg-1); border-left: 1px solid var(--border); display: flex; flex-direction: column; animation: pd-slide 0.18s ease; }
+    .pd-thread[hidden] { display: none; }
+    @keyframes pd-slide { from { transform: translateX(24px); opacity: 0; } }
+    .pd-thread-head { flex: none; display: flex; align-items: center; gap: 7px; padding: 11px 13px; border-bottom: 1px solid var(--border); }
+    .pd-thread-head b { font-size: 13px; }
+    .pd-thread-head span { flex: 1; font-size: 11px; color: var(--text-3); }
+    .pd-thread-msgs { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .pd-thread .pd-composer { margin: 8px 10px 10px; }
+    .pd-pop { position: absolute; z-index: 30; background: var(--bg-3); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.55); padding: 6px; min-width: 210px; max-width: 290px; }
+    .pd-pop h5 { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); padding: 4px 8px; }
+    .pd-pop .prow { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border-radius: 5px; font-size: 12.5px; color: var(--text-1); background: none; border: none; cursor: default; text-align: left; }
+    .pd-pop .prow:hover { background: var(--bg-4); }
+    .pd-pop .prow .sub { font-size: 10.5px; color: var(--text-3); }
+    .pd-pop .egrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 1px; }
+    .pd-pop .egrid button { font-size: 16px; padding: 4px; border-radius: 5px; background: none; border: none; cursor: pointer; }
+    .pd-pop .egrid button:hover { background: var(--bg-4); }
+    .pd-pop .file-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; font-size: 12px; }
+    .pd-pop .file-row:hover { background: var(--bg-4); }
+    .pd-pop .file-row img { width: 30px; height: 30px; border-radius: 5px; border: 1px solid var(--border); }
+    .pd-light { position: absolute; inset: 0; z-index: 40; background: rgba(4,5,6,0.88); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+    .pd-light img { max-width: 60%; border-radius: 10px; border: 1px solid var(--border); }
+    @media (max-width: 860px) {
+      .pd { height: 520px; }
+      .pd-side { display: none; }
+      .pd-thread { width: 240px; }
+      .demo-tag { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="grain" aria-hidden="true"></div>
+
+  <nav id="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top"><img src="assets/logo.svg" alt="Atrium logo" />Atrium</a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#platform">Platform</a>
+        <a href="#federation">Federation</a>
+        <a href="#deploy">Deploy</a>
+      </div>
+      <div class="nav-right">
+        <a class="nav-gh" href="#deploy">Self-host ↗</a>
+        <a class="nav-cta" href="https://chat.useatrium.xyz">Open the app</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <div class="hero-fx" aria-hidden="true">
+      <div class="dots"></div>
+      <div class="bloom a"></div>
+      <div class="bloom b"></div>
+      <div class="bloom c"></div>
+    </div>
+    <div class="wrap" style="position:relative">
+
+      <div class="well-wrap reveal zoom">
+        <div class="well-halo" aria-hidden="true"></div>
+        <div class="well-glow" aria-hidden="true"></div>
+        <!-- the light well, inlined so the rings can breathe -->
+        <svg class="well" viewBox="0 0 100 100" role="img" aria-label="The Atrium light-well mark: descending rings into a bright core">
+          <defs>
+            <linearGradient id="wTile" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#22262e"/><stop offset="1" stop-color="#0c0e12"/>
+            </linearGradient>
+            <linearGradient id="wCore" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#aeb4bf"/>
+            </linearGradient>
+          </defs>
+          <rect width="100" height="100" rx="23" fill="url(#wTile)"/>
+          <rect x="0.75" y="0.75" width="98.5" height="98.5" rx="22.5" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1.5"/>
+          <rect class="ring r1" x="20" y="12" width="60" height="60" rx="14" fill="none" stroke="#4b5563" stroke-width="5" opacity="0.6"/>
+          <rect class="ring r2" x="31" y="27" width="38" height="38" rx="9" fill="none" stroke="#a4acb8" stroke-width="5" opacity="0.9"/>
+          <rect class="core" x="42" y="42" width="16" height="16" rx="4.5" fill="url(#wCore)"/>
+        </svg>
+      </div>
+
+      <a class="pill reveal d1" href="#deploy"><span class="dot"></span>Open source · Self-hosted · <b>MIT licensed</b></a>
+
+      <h1 class="reveal d1">
+        <span class="l1">Team chat,</span>
+        <span class="l2">refined.</span>
+      </h1>
+
+      <p class="lede reveal d2">
+        Atrium is <b>open-source team chat</b> with a quiet, Linear-style interface.
+        Channels, threads, apps, federation, and a Mac app — self-hosted on one box,
+        with <b>no database to run</b>.
+      </p>
+
+      <div class="cta-row reveal d3">
+        <a class="btn btn-primary" id="cta-main" href="https://chat.useatrium.xyz">Open the app <span class="arr">→</span></a>
+        <a class="btn btn-ghost" id="cta-alt" href="#deploy">Self-host it</a>
+      </div>
+      <script>
+        // Personalize the main CTA: signed-in users get "Open the app",
+        // everyone else gets "Create your account". The flag cookie is set by
+        // the app on the parent domain — never contains the token.
+        (function () {
+          var signedIn = /(?:^|;\s*)atrium\.signed_in=1/.test(document.cookie);
+          if (signedIn) return;
+          var main = document.getElementById('cta-main');
+          main.childNodes[0].textContent = 'Create your account ';
+          var alt = document.getElementById('cta-alt');
+          if (alt) { alt.textContent = 'Open the app'; alt.href = 'https://chat.useatrium.xyz'; }
+        })();
+      </script>
+      <p class="micro reveal d4">Node ≥ 22.5 · <code>npm install &amp;&amp; npm start</code> · that's the whole install</p>
+    </div>
+
+    <div class="wrap">
+      <div class="stage">
+        <div class="frame reveal zoom d3" id="frame">
+          <div class="bar" aria-hidden="true">
+            <i></i><i></i><i></i>
+            <span class="url"><span class="lock">●</span>chat.useatrium.xyz/#general</span>
+            <span class="demo-tag">interactive demo — click around</span>
+          </div>
+          <div class="pd" id="pd">
+            <div class="pd-rail">
+              <img class="pd-logo" src="assets/logo.svg" alt="" />
+              <button class="pd-ws active" title="Atrium HQ">AT</button>
+              <button class="pd-ws" title="Playground">PG</button>
+              <button class="pd-iconbtn" id="pd-bell" title="Activity" aria-label="Activity">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2a4.2 4.2 0 0 0-4.2 4.2c0 2.6-1 3.8-1.6 4.6h11.6c-.6-.8-1.6-2-1.6-4.6A4.2 4.2 0 0 0 8 2Z"/><path d="M6.4 13a1.7 1.7 0 0 0 3.2 0"/></svg>
+                <span class="pd-badge">2</span>
+              </button>
+            </div>
+            <div class="pd-side">
+              <div class="pd-wsname">Atrium HQ</div>
+              <div class="pd-sec">Channels</div>
+              <div id="pd-chlist"></div>
+              <div class="pd-sec">Direct messages</div>
+              <div id="pd-dmlist"></div>
+              <div class="pd-sec">Apps</div>
+              <button class="pd-dm" data-ch="deploybot"><span class="pd-dot off"></span>deploybot <span class="pd-apptag">APP</span></button>
+            </div>
+            <div class="pd-main">
+              <div class="pd-head">
+                <b id="pd-title"># general</b>
+                <span id="pd-topic"></span>
+                <button class="pd-hbtn" id="pd-files" title="Shared files"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.5H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5.5L9 1.5Z"/><path d="M9 1.5v4h4"/></svg> Files</button>
+                <button class="pd-hbtn" id="pd-members" title="Members"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6" cy="5" r="2.4"/><path d="M2.5 13.5c.6-2.2 1.9-3.3 3.5-3.3s2.9 1.1 3.5 3.3"/><path d="M10.5 8.5a2 2 0 1 0-1.4-3.4M11 10.5c1.4.4 2.3 1.4 2.7 3"/></svg> 3</button>
+              </div>
+              <div class="pd-msgs" id="pd-msgs"></div>
+              <div class="pd-composer">
+                <button class="pd-iconbtn" id="pd-attach" title="Attach a file" aria-label="Attach a file"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="m12.5 7.5-5.3 5.3a3.2 3.2 0 0 1-4.5-4.5l5.6-5.6a2.1 2.1 0 0 1 3 3L5.8 11a1.1 1.1 0 0 1-1.5-1.5l5-5"/></svg></button>
+                <input id="pd-input" placeholder="Message #general" autocomplete="off" />
+                <button class="pd-iconbtn" id="pd-emoji" title="Emoji" aria-label="Emoji"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"/><path d="M5.5 9.5c.7 1 1.6 1.5 2.5 1.5s1.8-.5 2.5-1.5M5.8 6.3h.01M10.2 6.3h.01"/></svg></button>
+                <button class="pd-send" id="pd-send" title="Send" aria-label="Send"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2 7.5 8.5M14 2 9.8 14l-2.3-5.5L2 6.2 14 2Z"/></svg></button>
+              </div>
+            </div>
+            <div class="pd-thread" id="pd-thread" hidden>
+              <div class="pd-thread-head"><b>Thread</b><span id="pd-thread-ch"></span><button class="pd-iconbtn" id="pd-thread-x" aria-label="Close thread"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
+              <div class="pd-thread-msgs" id="pd-thread-msgs"></div>
+              <div class="pd-composer"><input id="pd-thread-input" placeholder="Reply…" autocomplete="off" /><button class="pd-send" id="pd-thread-send" aria-label="Reply"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2 7.5 8.5M14 2 9.8 14l-2.3-5.5L2 6.2 14 2Z"/></svg></button></div>
+            </div>
+            <div class="pd-pop" id="pd-pop" hidden></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats reveal d2">
+        <div class="stats-row">
+          <div class="stat"><div class="num">0</div><div class="lbl">external services</div></div>
+          <div class="stat"><div class="num">1</div><div class="lbl">process to run</div></div>
+          <div class="stat"><div class="num">1</div><div class="lbl">file of state — SQLite</div></div>
+          <div class="stat"><div class="num">135+</div><div class="lbl">smoke checks in CI</div></div>
+          <div class="stat"><div class="num">MIT</div><div class="lbl">licensed, forever</div></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="features">
+    <div class="wrap center">
+      <p class="kicker reveal">Everything a team needs</p>
+      <h2 class="reveal">Fast where it matters,<br /><span class="dim">quiet where it doesn't.</span></h2>
+      <p class="sub reveal d1">The full chat surface — without the noise, and without a fleet of services underneath.</p>
+
+      <div class="bento">
+        <div class="tile t-a reveal d1">
+          <h3>Channels, threads &amp; DMs</h3>
+          <p>Public &amp; private channels, group DMs, threads, reactions, pins, saved items — starred and muted views of it all.</p>
+          <div class="mini-chat" aria-hidden="true">
+            <div class="mc-msg">
+              <span class="mc-av ada">AL</span>
+              <div>
+                <span class="mc-name">Ada Lovelace</span><span class="mc-time">11:57</span>
+                <p class="mc-body">Welcome to <b>Atrium</b> — flat surfaces, hairline borders, one indigo accent. Try <span class="mention">@grace</span> mentions.</p>
+                <div class="mc-reacts"><span>🔥 2</span><span class="on">🎉 1</span></div>
+                <span class="mc-thread">1 reply →</span>
+              </div>
+            </div>
+            <div class="mc-msg">
+              <span class="mc-av grace">GH</span>
+              <div>
+                <span class="mc-name">Grace Hopper</span><span class="mc-time">11:58</span>
+                <p class="mc-body">The new design system is <i>so</i> quiet. It is just content.</p>
+              </div>
+            </div>
+            <div class="mc-typing"><span class="tdots"><i></i><i></i><i></i></span> Ada is typing…</div>
+          </div>
+        </div>
+
+        <div class="tile t-b reveal d2">
+          <h3>Apps &amp; agents</h3>
+          <p>Bot tokens, incoming webhooks, slash commands, and HMAC-signed events. Build bots and agents on the same API users get.</p>
+          <div class="mini-hook" aria-hidden="true">
+<span class="c"># from anywhere with curl</span><br />curl -X POST …/hooks/<span class="b">$TOKEN</span> \<br />&nbsp;&nbsp;-d <span class="g">'{"text":"deploy done ✅"}'</span>
+          </div>
+        </div>
+
+        <div class="tile t-c reveal d1">
+          <h3>Search that finds</h3>
+          <p>Full-text search with filters, highlighted snippets, and jump-to-message.</p>
+          <div class="mini-search" aria-hidden="true">
+            <div class="field">⌕&nbsp;<span class="op">from:</span><span class="q">ada</span>&nbsp;<span class="op">in:</span><span class="q">#design</span>&nbsp;<span class="q">accent</span><span class="caret"></span></div>
+            <div class="hit"><span class="in">#design · yesterday</span><br />…one indigo <mark>accent</mark>, nothing else…</div>
+          </div>
+        </div>
+
+        <div class="tile t-d reveal d2">
+          <h3>Mac desktop app</h3>
+          <p>A native-window shell with dock badges and notifications — pointed at any Atrium server you like.</p>
+          <div class="mini-mac" aria-hidden="true">
+            <div class="tb"><i></i><i></i><i></i><span>Atrium — acme</span></div>
+            <div class="body">
+              <img src="assets/icon.png" alt="" />
+              <p>Dock badge, native notifications</p>
+              <span class="badge">3</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tile t-e reveal d3">
+          <h3>Security by default</h3>
+          <p>Reviewed, tested, and documented — hardened before it was ever public.</p>
+          <div class="chips" aria-hidden="true">
+            <span class="hot">async scrypt</span><span>rate limits</span><span>SSRF guards</span><span class="hot">HMAC events</span><span>CSP headers</span><span>scoped tokens</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="platform" class="band">
+    <div class="wrap">
+      <div class="split">
+        <div class="reveal from-left">
+          <p class="kicker">A platform, not just a product</p>
+          <h2>Build apps on the<br />same surface.</h2>
+          <p class="sub">Everything the client can do, your code can do. No separate “app platform” — one API, one token model.</p>
+          <ul class="check-list">
+            <li><span class="tick">✓</span><span><b>Bot tokens</b> call the entire REST API, scoped to their workspace.</span></li>
+            <li><span class="tick">✓</span><span><b>Incoming webhooks</b> post from anything with curl — CI, alerts, cron.</span></li>
+            <li><span class="tick">✓</span><span><b>Slash commands</b> with signed callbacks, in-channel or ephemeral.</span></li>
+            <li><span class="tick">✓</span><span><b>Events API</b> — messages, reactions, mentions, delivered HMAC-signed with retries.</span></li>
+            <li><span class="tick">✓</span><span><b>Agents welcome</b> — the realtime socket accepts bot tokens too.</span></li>
+          </ul>
+        </div>
+        <div class="term reveal from-right d1">
+          <div class="t-head">
+            <i></i><i></i><i></i><span class="t-title">zsh — deploy-bot</span>
+            <button class="copy" data-copy="curl -X POST https://chat.example.com/hooks/$TOKEN -H 'Content-Type: application/json' -d '{&quot;text&quot;:&quot;Deploy to prod finished ✅&quot;}'" aria-label="Copy webhook example">Copy</button>
+          </div>
+<pre><span class="c"># post from your deploy pipeline</span>
+<span class="p">$</span> curl <span class="flag">-X</span> POST https://chat.example.com/hooks/<span class="b">$TOKEN</span> \
+    <span class="flag">-H</span> <span class="g">'Content-Type: application/json'</span> \
+    <span class="flag">-d</span> <span class="g">'{"text":"Deploy to prod finished ✅"}'</span>
+
+<span class="c"># or drive the API as a bot</span>
+<span class="p">$</span> curl https://chat.example.com/api/v1/channels/<span class="b">$CH</span>/messages \
+    <span class="flag">-H</span> <span class="g">"Authorization: Bearer xatb-…"</span> \
+    <span class="flag">-d</span> <span class="g">'{"text":"bot speaking"}'</span>
+<span class="w">201</span> <span class="g">✓ delivered</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="federation">
+    <div class="wrap center">
+      <p class="kicker reveal">Slack Connect, but yours</p>
+      <h2 class="reveal">Federated by design.</h2>
+      <p class="sub reveal d1">Every Atrium server is sovereign. Connect two of them with a single-use invite code, and workspaces can share channels and DM across the wire — signed, rate-limited, and revocable.</p>
+
+      <div class="fed-wrap reveal zoom d2">
+        <div class="fed-row">
+          <div class="fed-node">
+            <img src="assets/icon.png" alt="" />
+            <span class="host">acme.example.com</span>
+            <span class="tag">Sovereign</span>
+          </div>
+          <div class="fed-wire" aria-hidden="true">
+            <div class="rail"></div>
+            <div class="packet"></div>
+            <div class="packet rtn"></div>
+          </div>
+          <div class="fed-node right">
+            <img src="assets/icon.png" alt="" style="filter:hue-rotate(120deg)" />
+            <span class="host">partner.example.com</span>
+            <span class="tag">Sovereign</span>
+          </div>
+        </div>
+        <p class="fed-label"><b>HMAC-signed relay</b> · single-use invite · revocable at either end</p>
+      </div>
+
+      <div class="fed-points">
+        <div class="fp reveal d1"><h4>Shared channels</h4><p>One channel, two servers. Messages relay both ways with per-server identity intact.</p></div>
+        <div class="fp reveal d2"><h4>External DMs</h4><p>Message people on federated servers directly — no shared account, no shared database.</p></div>
+        <div class="fp reveal d3"><h4>Revocable trust</h4><p>Either side can sever the link at any time. Signing keys rotate; history stays local.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="deploy" class="band">
+    <div class="wrap">
+      <div class="center">
+        <p class="kicker reveal">Deploy</p>
+        <h2 class="reveal">One box. One process. One file.</h2>
+        <p class="sub reveal d1" style="max-width:640px">Atrium ships as a single Node process with SQLite built in. No Postgres, no Redis, no SMTP, no build step. A €5 VPS and a domain is the whole bill.</p>
+      </div>
+
+      <div class="stepper">
+        <div class="stp reveal d1"><span class="dot"></span><div><h3>Get a box</h3><p>Any 1 vCPU / 1 GB VPS, or a container host. Ubuntu 24.04 works out of the gate.</p></div></div>
+        <div class="stp reveal d2"><span class="dot"></span><div><h3>Point a domain</h3><p>One A record. Caddy issues TLS automatically — federation requires it.</p></div></div>
+        <div class="stp reveal d3"><span class="dot"></span><div><h3>Run it</h3><p><code>docker compose up -d</code> or <code>npm install &amp;&amp; npm start</code>. Migrations run at boot.</p></div></div>
+        <div class="stp reveal d4"><span class="dot"></span><div><h3>Set it up</h3><p>Open the URL: setup wizard, then create a workspace or join with an invite link.</p></div></div>
+      </div>
+
+      <div class="term deploy-term reveal zoom">
+        <div class="t-head">
+          <i></i><i></i><i></i><span class="t-title">ssh root@your-box</span>
+          <button class="copy" data-copy="npm install && npm start" aria-label="Copy install command">Copy</button>
+        </div>
+<pre><span class="p">$</span> git clone https://github.com/atrium/atrium <span class="c">&amp;&amp;</span> cd atrium
+<span class="p">$</span> npm install <span class="c">&amp;&amp;</span> npm start
+<span class="g">✓</span> migrations applied — sqlite at <span class="b">./data/atrium.db</span>
+<span class="g">✓</span> atrium listening on <span class="w">https://chat.example.com</span>
+<span class="c">— that's it. no database server, no build step.</span></pre>
+      </div>
+
+      <div class="needs">
+        <div class="need yes reveal d1">
+          <h3><span class="mk">✓</span>What you need</h3>
+          <p>Node ≥ 22.5 or Docker · persistent disk for <code>./data</code> · TLS for public use · a domain (or a free PaaS subdomain)</p>
+        </div>
+        <div class="need no reveal d2">
+          <h3><span class="mk">✕</span>What you don't</h3>
+          <p><s>Database server</s> · <s>SMTP / email provider</s> · <s>object storage</s> · <s>build tooling</s> · <s>license server</s></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="final">
+    <div class="wrap">
+      <div class="mark reveal zoom"><img src="assets/logo.svg" alt="" /></div>
+      <h2 class="reveal d1">Own your conversations.</h2>
+      <p class="sub reveal d2">Fork it, host it, build on it. Your server, your data, your rules — MIT licensed.</p>
+      <div class="cta-row reveal d3">
+        <a class="btn btn-primary" id="cta-final" href="https://chat.useatrium.xyz">Create your account <span class="arr">→</span></a>
+        <a class="btn btn-ghost" href="#deploy">Read the deployment guide</a>
+      </div>
+      <script>
+        (function () {
+          if (!/(?:^|;\s*)atrium\.signed_in=1/.test(document.cookie)) return;
+          var f = document.getElementById('cta-final');
+          if (f) f.childNodes[0].textContent = 'Open the app ';
+        })();
+      </script>
+    </div>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot-top">
+        <div class="foot-brand">
+          <a class="brand" href="#top"><img src="assets/logo.svg" alt="" />Atrium</a>
+          <p>Open-source, self-hosted team chat with a quiet interface. One process, one file of state, yours forever.</p>
+        </div>
+        <div class="foot-cols">
+          <div class="foot-col">
+            <h4>Product</h4>
+            <a href="#features">Features</a>
+            <a href="#platform">Platform</a>
+            <a href="#federation">Federation</a>
+          </div>
+          <div class="foot-col">
+            <h4>Self-host</h4>
+            <a href="#deploy">Deploy guide</a>
+            <a href="#deploy">Deploy guide</a>
+          </div>
+          <div class="foot-col">
+            <h4>App</h4>
+            <a href="https://chat.useatrium.xyz">Open the app</a>
+            <a href="https://chat.useatrium.xyz">Create an account</a>
+          </div>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 Atrium contributors</span>
+        <span>MIT License</span>
+        <span class="spacer">Not affiliated with Slack Technologies or Linear</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      /* scroll reveal */
+      var revealed = document.querySelectorAll('.reveal');
+      if ('IntersectionObserver' in window && !reduced) {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+          });
+        }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+        revealed.forEach(function (el) { io.observe(el); });
+      } else {
+        revealed.forEach(function (el) { el.classList.add('in'); });
+      }
+
+      /* nav border on scroll */
+      var nav = document.getElementById('nav');
+      function onNav() { nav.classList.toggle('scrolled', window.scrollY > 8); }
+      addEventListener('scroll', onNav, { passive: true });
+      onNav();
+
+      /* screenshot: perspective tilt that settles flat as it scrolls in */
+      var frame = document.getElementById('frame');
+      if (frame && !reduced && matchMedia('(min-width: 861px)').matches) {
+        var ticking = false;
+        function tilt() {
+          ticking = false;
+          var r = frame.getBoundingClientRect();
+          var vh = innerHeight;
+          // 1 when the frame top is at the bottom of the viewport, 0 once it reaches ~35% up
+          var t = Math.min(1, Math.max(0, (r.top - vh * 0.35) / (vh * 0.65)));
+          frame.style.setProperty('--tilt', (t * 13).toFixed(2) + 'deg');
+          frame.style.setProperty('--tscale', (1 - t * 0.03).toFixed(4));
+        }
+        addEventListener('scroll', function () {
+          if (!ticking) { ticking = true; requestAnimationFrame(tilt); }
+        }, { passive: true });
+        tilt();
+      }
+
+      /* cursor-tracked border glow on bento tiles */
+      if (matchMedia('(hover: hover)').matches) {
+        document.querySelectorAll('.tile').forEach(function (tile) {
+          tile.addEventListener('pointermove', function (e) {
+            var r = tile.getBoundingClientRect();
+            tile.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+            tile.style.setProperty('--my', (e.clientY - r.top) + 'px');
+          });
+        });
+      }
+
+      /* copy buttons */
+      document.querySelectorAll('.copy').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var text = btn.getAttribute('data-copy');
+          function done() {
+            btn.classList.add('done'); btn.textContent = 'Copied ✓';
+            setTimeout(function () { btn.classList.remove('done'); btn.textContent = 'Copy'; }, 1600);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, done);
+          } else {
+            var ta = document.createElement('textarea');
+            ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta); done();
+          }
+        });
+      });
+    })();
+
+    /* ============================== interactive product demo ============================== */
+    (function () {
+      var pd = document.getElementById('pd');
+      if (!pd) return;
+      var $ = function (s, r) { return (r || pd).querySelector(s); };
+      var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+      var AV = { ada: ['AL', '#5e6ad2'], grace: ['GH', '#4cb782'], deploybot: ['DB', '#8a8f98'] };
+      var ME = 'ada';
+
+      var data = {
+        general: { title: '# general', topic: 'Company-wide announcements', msgs: [
+          { u: 'ada', name: 'Ada Lovelace', time: '11:57', html: 'Welcome to <b>Atrium</b> — open-source team chat with a quiet, Linear-style soul.', reacts: { '🔥': 2, '🎉': 1 }, thread: [{ u: 'grace', name: 'Grace Hopper', time: '11:58', html: 'The new design system is so quiet. It is just content.' }] },
+          { u: 'grace', name: 'Grace Hopper', time: '12:04', html: 'Shipped the new sidebar at 3pm, v2.0 🚢' },
+          { u: 'deploybot', name: 'deploybot', app: true, time: '12:05', html: 'Deploy to production finished ✅', reacts: { '✅': 3 } },
+          { u: 'ada', name: 'Ada Lovelace', time: '12:06', html: '<pre>const accent = 0x5e6ad2;\n// every surface, one accent</pre>' },
+        ]},
+        design: { title: '# design', topic: 'Pixels and polish', msgs: [
+          { u: 'grace', name: 'Grace Hopper', time: '09:14', html: 'Pushed the light-well mark at four sizes — even the 16px still reads.', img: 'assets/logo.svg' },
+          { u: 'ada', name: 'Ada Lovelace', time: '09:16', html: 'The indigo ring on focus is <i>chef’s kiss</i>' },
+          { u: 'grace', name: 'Grace Hopper', time: '09:17', html: 'Agreed. Mention chips for <span class="mention">@ada</span> are shipping too.', reacts: { '👀': 1 } },
+        ]},
+        eng: { title: '# engineering', topic: 'Build, measure, ship', msgs: [
+          { u: 'ada', name: 'Ada Lovelace', time: '10:20', html: 'FTS5 search landed — try <code>from:grace in:engineering</code>' },
+          { u: 'grace', name: 'Grace Hopper', time: '10:31', html: '135 smoke checks green. Shipping.' },
+          { u: 'deploybot', name: 'deploybot', app: true, time: '10:32', html: 'CI passed for main@a1b2c3 ✅' },
+        ]},
+        grace: { title: 'Grace Hopper', topic: 'Direct conversation', dm: true, msgs: [
+          { u: 'grace', name: 'Grace Hopper', time: '13:02', html: 'can you review the onboarding flow?' },
+          { u: 'ada', name: 'Ada Lovelace', time: '13:05', html: 'on it — the two-card layout is the right call' },
+        ]},
+        you: { title: 'Ada Lovelace (you)', topic: 'Your space — only you can see this', dm: true, self: true, msgs: [
+          { u: 'ada', name: 'Ada Lovelace', time: '08:12', html: 'note: federation doc needs the rate-limit section' },
+          { u: 'ada', name: 'Ada Lovelace', time: '08:13', html: 'todo: renew domain before July' },
+        ]},
+        deploybot: { title: 'deploybot', topic: 'App notifications', dm: true, msgs: [
+          { u: 'deploybot', name: 'deploybot', app: true, time: '07:45', html: 'Webhook <code>/hooks/9f2b…</code> delivered 200 ✅' },
+          { u: 'deploybot', name: 'deploybot', app: true, time: '07:46', html: 'Slash command <code>/deploy</code> registered' },
+        ]},
+      };
+      var order = [['general', '# general'], ['design', '# design'], ['eng', '# engineering']];
+      var dms = [['grace', 'Grace Hopper'], ['you', 'Ada Lovelace (you)']];
+      var current = 'general';
+      var threadOf = null;
+
+      function msgHtml(m, i) {
+        var a = AV[m.u];
+        var reacts = '';
+        if (m.reacts) {
+          reacts = '<div class="pd-reacts">' + Object.keys(m.reacts).map(function (e) {
+            return '<button class="pd-react" data-r="' + i + '" data-e="' + e + '">' + e + ' <span class="n">' + m.reacts[e] + '</span></button>';
+          }).join('') + '</div>';
+        }
+        var thread = '';
+        if (m.thread && m.thread.length) {
+          thread = '<button class="pd-tlink" data-t="' + i + '">' + m.thread.length + ' ' + (m.thread.length === 1 ? 'reply' : 'replies') + ' →</button>';
+        }
+        var img = m.img ? '<img class="pd-mimg" src="' + m.img + '" alt="attachment" />' : '';
+        return '<div class="pd-msg" data-i="' + i + '">' +
+          '<div class="pd-av" style="background:' + a[1] + '">' + a[0] + '</div>' +
+          '<div class="pd-mbody"><div class="pd-mhead"><b>' + esc(m.name) + '</b>' + (m.app ? '<span class="pd-apptag">APP</span>' : '') + '<span>' + m.time + '</span></div>' +
+          '<div class="pd-mtext">' + m.html + '</div>' + img + reacts + thread + '</div>' +
+          '<div class="pd-mact"><button data-act="react" title="React">👍</button><button data-act="thread" title="Reply in thread">💬</button></div>' +
+          '</div>';
+      }
+
+      function render() {
+        var c = data[current];
+        $('#pd-title').textContent = c.title;
+        $('#pd-topic').textContent = c.topic;
+        $('#pd-input').placeholder = c.dm ? 'Message ' + c.title : 'Message ' + c.title;
+        $('#pd-msgs').innerHTML = '<div class="pd-day"><span>Today</span></div>' + c.msgs.map(msgHtml).join('');
+        $('#pd-msgs').scrollTop = $('#pd-msgs').scrollHeight;
+        pd.querySelectorAll('.pd-ch').forEach(function (b) { b.classList.toggle('active', b.dataset.ch === current); });
+        closeThread();
+      }
+
+      function renderLists() {
+        $('#pd-chlist').innerHTML = order.map(function (o) {
+          return '<button class="pd-ch' + (o[0] === current ? ' active' : '') + '" data-ch="' + o[0] + '"><span class="hash">#</span>' + o[1].slice(2) + '</button>';
+        }).join('');
+        $('#pd-dmlist').innerHTML = dms.map(function (o) {
+          return '<button class="pd-dm" data-ch="' + o[0] + '"><span class="pd-dot' + (o[0] === 'you' ? ' off' : '') + '"></span>' + o[1] + '</button>';
+        }).join('');
+      }
+
+      function openThread(i) {
+        var m = data[current].msgs[i];
+        if (!m) return;
+        threadOf = m;
+        $('#pd-thread-ch').textContent = data[current].title;
+        $('#pd-thread-msgs').innerHTML = msgHtml(m, 't') + (m.thread || []).map(function (r, j) { return msgHtml(r, 't' + j); }).join('');
+        $('#pd-thread').hidden = false;
+      }
+      function closeThread() { $('#pd-thread').hidden = true; threadOf = null; }
+
+      function send(text, intoThread) {
+        text = text.trim();
+        if (!text) return;
+        var m = { u: ME, name: 'Ada Lovelace', time: 'now', html: esc(text).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>') };
+        if (intoThread && threadOf) {
+          threadOf.thread = threadOf.thread || [];
+          threadOf.thread.push(m);
+          var idx = data[current].msgs.indexOf(threadOf);
+          render();
+          if (idx >= 0) openThread(idx);
+          return;
+        }
+        data[current].msgs.push(m);
+        render();
+      }
+
+      function pop(anchor, html) {
+        var p = $('#pd-pop');
+        p.innerHTML = html;
+        p.hidden = false;
+        var r = anchor.getBoundingClientRect(), pr = pd.getBoundingClientRect();
+        p.style.left = Math.max(8, Math.min(r.left - pr.left, pr.width - p.offsetWidth - 8)) + 'px';
+        // Open upward when there isn't room below the anchor.
+        var below = r.bottom - pr.top + 6;
+        if (below + p.offsetHeight > pr.height - 8) {
+          p.style.top = Math.max(8, r.top - pr.top - p.offsetHeight - 6) + 'px';
+        } else {
+          p.style.top = below + 'px';
+        }
+      }
+      function closePop() { $('#pd-pop').hidden = true; }
+
+      // Channel + DM switching
+      pd.addEventListener('click', function (e) {
+        var ch = e.target.closest('[data-ch]');
+        if (ch) { current = ch.dataset.ch; render(); renderLists(); return; }
+        var rl = e.target.closest('.pd-react');
+        if (rl) {
+          var m = data[current].msgs[rl.dataset.r];
+          m.reacts[rl.dataset.e] += (rl.classList.contains('mine') ? -1 : 1);
+          rl.classList.toggle('mine');
+          rl.querySelector('.n').textContent = m.reacts[rl.dataset.e];
+          return;
+        }
+        var act = e.target.closest('[data-act]');
+        if (act) {
+          var mi = act.closest('.pd-msg').dataset.i;
+          if (act.dataset.act === 'react') {
+            var mm = data.current === current ? data[current].msgs[mi] : null;
+            if (mm) { mm.reacts = mm.reacts || {}; mm.reacts['👍'] = (mm.reacts['👍'] || 0) + 1; render(); }
+          } else openThread(Number(mi));
+          return;
+        }
+        var tl = e.target.closest('.pd-tlink');
+        if (tl) { openThread(Number(tl.dataset.t)); return; }
+        if (e.target.closest('.pd-mimg')) {
+          var lb = document.createElement('div');
+          lb.className = 'pd-light';
+          lb.innerHTML = '<img src="' + e.target.closest('.pd-mimg').src + '" />';
+          lb.onclick = function () { lb.remove(); };
+          pd.appendChild(lb);
+          return;
+        }
+        if (!e.target.closest('#pd-pop')) closePop();
+      });
+
+      $('#pd-send').onclick = function () { var i = $('#pd-input'); send(i.value); i.value = ''; i.focus(); };
+      $('#pd-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') { send(this.value); this.value = ''; } });
+      $('#pd-thread-send').onclick = function () { var i = $('#pd-thread-input'); send(i.value, true); i.value = ''; };
+      $('#pd-thread-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') { send(this.value, true); this.value = ''; } });
+      $('#pd-thread-x').onclick = closeThread;
+
+      $('#pd-emoji').onclick = function (e) {
+        var em = ['👍', '🔥', '🎉', '✅', '👀', '🚀', '💯', '😂'];
+        pop(e.currentTarget, '<h5>Emoji</h5><div class="egrid">' + em.map(function (x) { return '<button>' + x + '</button>'; }).join('') + '</div>');
+        $('#pd-pop').querySelectorAll('.egrid button').forEach(function (b) {
+          b.onclick = function () { $('#pd-input').value += b.textContent; closePop(); $('#pd-input').focus(); };
+        });
+        e.stopPropagation();
+      };
+
+      $('#pd-attach').onclick = function (e) {
+        pop(e.currentTarget, '<h5>Attach</h5><div class="file-row">📄 Drop files here in the real app — or use Cmd+V to paste.</div>');
+        e.stopPropagation();
+      };
+
+      $('#pd-files').onclick = function (e) {
+        pop(e.currentTarget, '<h5>Files in this channel</h5>' +
+          '<div class="file-row"><img src="assets/logo.svg" alt="" /><div><b>light-well-final.svg</b><div class="sub">Grace Hopper · 8 KB</div></div></div>' +
+          '<div class="file-row">📄 <div><b>release-notes.md</b><div class="sub">Ada Lovelace · 2 KB</div></div></div>');
+        e.stopPropagation();
+      };
+
+      $('#pd-members').onclick = function (e) {
+        pop(e.currentTarget, '<h5>3 members</h5>' +
+          [['AL', '#5e6ad2', 'Ada Lovelace', 'owner'], ['GH', '#4cb782', 'Grace Hopper', ''], ['DB', '#8a8f98', 'deploybot', 'app']].map(function (m) {
+            return '<div class="prow"><div class="pd-av" style="background:' + m[1] + ';width:24px;height:24px;font-size:10px">' + m[0] + '</div><div><b>' + m[2] + '</b><div class="sub">' + (m[3] || 'member') + '</div></div></div>';
+          }).join(''));
+        e.stopPropagation();
+      };
+
+      $('#pd-bell').onclick = function (e) {
+        pop(e.currentTarget, '<h5>Activity</h5>' +
+          '<div class="prow"><div class="pd-av" style="background:#4cb782;width:24px;height:24px;font-size:10px">GH</div><div><b>Grace Hopper</b> mentioned you<div class="sub">#design · Mention chips for @ada are shipping…</div></div></div>' +
+          '<div class="prow"><div class="pd-av" style="background:#8a8f98;width:24px;height:24px;font-size:10px">DB</div><div><b>deploybot</b> in #general<div class="sub">Deploy to production finished ✅</div></div></div>');
+        e.stopPropagation();
+      };
+
+      renderLists();
+      render();
+    })();
+  </script>
+</body>
+</html>
